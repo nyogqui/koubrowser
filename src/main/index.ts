@@ -10,6 +10,8 @@ import { optionSettingStore } from '@main/store'
 import { defaultOptionSetting, OptionSetting } from '@common/option'
 import { gameSetting } from '@main/settings'
 
+app.commandLine.appendSwitch('force-color-profile', 'srgb')
+
 console.log('main index.ts __dirname:', __dirname)
 setMainDir(__dirname)
 
