@@ -33,9 +33,10 @@ export class Const {
   static readonly AssistWidth = 600
   static readonly AppUserModelId = 'com.koubrowser.app'
   static readonly ArgIsAssist = '--is-assist'
+  static readonly ArgIsTaihaOverlay = '--is-taiha-overlay'
   static readonly ArgIsTestMode = '--is-test-mode'
   static readonly ArgIsInitMuted = '--is-init-muted'
-  static readonly ArgAppLaunchId = '--app-launch-id' 
+  static readonly ArgAppLaunchId = '--app-launch-id'
   static readonly GamePageUrl = 'https://www.dmm.com/netgame/feature/kancolle.html'
 
   // 大破進撃ブロック関連

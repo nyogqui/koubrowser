@@ -12,15 +12,16 @@ const debug = (...args: any[]) => {
 };
 
 /////////////////////////////////////////////////////////////////////////////////////
-// 
-const props = defineProps<{ 
+//
+const props = defineProps<{
   rectRate: RectRate;  // ブロックUI配置箇所
+  isHovered?: boolean
 }>()
 const shieldGlowId = `shield-glow-${useId().replaceAll(':', '-')}`
 const shieldGlowUrl = `url(#${shieldGlowId})`
 
 /////////////////////////////////////////////////////////////////////////////////////
-// 
+//
 const toPercent = (value: number): string => `${value * 100}%`
 const buttonCoverStyle = computed(() => {
   const rectRate = props.rectRate
@@ -74,9 +75,9 @@ defineExpose({
 
 </script>
 <template>
-  <div class="button-cover" 
-    title="大破進撃防止" 
-    :class="{ 'is-guard-hit': isGuardHit }"
+  <div class="button-cover"
+    title="大破進撃防止"
+    :class="{ 'is-guard-hit': isGuardHit, 'is-hovered': props.isHovered }"
     :style="buttonCoverStyle"
     @click.prevent.stop="onButtonCoverClick">
     <svg

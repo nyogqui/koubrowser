@@ -4,26 +4,26 @@ import { ref, onMounted, watch, onUnmounted, computed } from 'vue'
 // https://www.electronjs.org/ja/docs/latest/api/webview-tag
 import { WebviewTag, DidFrameFinishLoadEvent, LoadCommitEvent, IpcRendererEvent } from 'electron'
 import { gameSetting } from '@renderer/store/gamesetting'
-import { GameChannel, TaihaSingekiBlockState } from '@common/channel'
+import {
+  GameChannel,
+  TaihaOverlayShipInfo,
+  TaihaOverlayViewState,
+  TaihaSingekiBlockState,
+} from '@common/channel'
 import { Const } from '@common/const'
 import { gameState } from '@renderer/store/gamestate'
 import { EnvRenderer } from '@renderer/common/env-renderer'
 import { MainRendererState } from '@renderer/store/renderer_state'
-import BlockShield from '@renderer/components/BlockShield.vue'
 import * as kcs_stuff from '@renderer/stuff/kcs_stuff'
-import WarningIcon from '@assets/img/warning.svg'
 import { ApiCallback } from '@common/kcs'
 import { Api } from '@common/kcsapi'
 import { svdata } from '@renderer/store/svdata'
 
-type BlockShieldInstance = InstanceType<typeof BlockShield>
 const ipcRenderer = window.electron.ipcRenderer
 const el = ref<HTMLElement | null>(null)
-const normalBlockShieldRef = ref<BlockShieldInstance | null>(null)
-const repairBlockShieldRef = ref<BlockShieldInstance | null>(null)
-const megamiBlockShieldRef = ref<BlockShieldInstance | null>(null)
 let stopSetZoomFactor: (() => void) | null = null
-let stopGuardHitEffect: (() => void) | null = null
+let stopSetTaihaOverlayShieldEnabled: (() => void) | null = null
+let stopToggleTaihaOverlayTest: (() => void) | null = null
 
 /////////////////////////////////////////////////////////////////////////////////////
 // デバッグログ
@@ -45,9 +45,17 @@ const taihaSingekiResult = ref<kcs_stuff.CheckTaihaSingekiResult | null>(null)
 let blockShieldVisibleTimer: ReturnType<typeof setTimeout> | null = null
 const isBlockShieldSwitch = ref<boolean>(true)
 const taihaSingekiRechecked = ref<boolean>(false)
+const isTaihaOverlayTestMode = ref<boolean>(false)
 
-// アニメーション完了後に要素を削除するための判定に使用
-const isTaihaWarningInAnimation = ref(false)
+const testTaihaShipInfos: TaihaOverlayShipInfo[] = [
+  {
+    shipText: 'Lv.99島風',
+    hasMegami: false,
+    hasRepair: false,
+    noDamageControl: true,
+    subText: 'ダメコンなし',
+  },
+]
 
 const clearBlockShieldVisibleTimer = () => {
   if (blockShieldVisibleTimer) {
@@ -77,9 +85,111 @@ const taihaSingekiBlockStates = computed<TaihaSingekiBlockState[]>(() => {
   if (states.length === 0) {
     states.push(TaihaSingekiBlockState.normalBlock)
   }
-  
+
   return states
 })
+
+const isTaihaSingekiBlock = computed<boolean>(() => {
+  const result = taihaSingekiResult.value
+  if (!result) {
+    debug('isTaihaAdvanceBlockerVisible: no result')
+    return false
+  }
+  debug('isTaihaAdvanceBlockerVisible: result', result)
+  return result.isTaihaSingeki
+})
+
+const taihaShipInfos = computed<TaihaOverlayShipInfo[]>(() => {
+  const result = taihaSingekiResult.value
+  if (!result || !result.isTaihaSingeki) {
+    debug('taihaShipInfos: no result')
+    return []
+  }
+
+  let escapeTextAdded = false
+  return result.infos.map((info) => {
+    const subTexts: string[] = []
+    const hasMegami = info.equips.includes(kcs_stuff.EquipType.flagship_megami) ||
+      info.equips.includes(kcs_stuff.EquipType.megami)
+    const hasRepair = info.equips.includes(kcs_stuff.EquipType.flagship_repair) ||
+      info.equips.includes(kcs_stuff.EquipType.repair)
+    const noDamageControl = info.equips.length === 0
+    if (noDamageControl) {
+      subTexts.push('ダメコンなし')
+    }
+
+    // 退避可能艦表示
+    // 再チェック後では表示しない
+    if (!taihaSingekiRechecked.value) {
+      if (info.canEscape && !escapeTextAdded) {
+        subTexts.push('退避可')
+        escapeTextAdded = true
+      }
+    }
+
+    const api = info.api_ship
+    const mst = svdata.mstShip(api.api_ship_id)
+    const shipText = `Lv.${api.api_lv}${mst?.api_name ?? ''}`
+    const subText = subTexts.join(',')
+
+    return {
+      shipText,
+      subText,
+      hasMegami,
+      hasRepair,
+      noDamageControl,
+    }
+  })
+})
+
+const syncTaihaOverlayViewState = (): void => {
+  if (isTaihaOverlayTestMode.value) {
+    const testBlockStates = isBlockShieldSwitch.value
+      ? [TaihaSingekiBlockState.normalBlock]
+      : []
+    const testState: TaihaOverlayViewState = {
+      isTaihaSingekiBlock: true,
+      isBlockShieldSwitch: isBlockShieldSwitch.value,
+      blockStates: testBlockStates,
+      shipInfos: testTaihaShipInfos,
+    }
+    window.api.setTaihaOverlayViewState(testState)
+    return
+  }
+
+  const state: TaihaOverlayViewState = {
+    isTaihaSingekiBlock: isTaihaSingekiBlock.value,
+    isBlockShieldSwitch: isBlockShieldSwitch.value,
+    blockStates: isBlockShieldSwitch.value ? [...taihaSingekiBlockStates.value] : [],
+    shipInfos: [...taihaShipInfos.value],
+  }
+  window.api.setTaihaOverlayViewState(state)
+}
+
+const applyShieldState = (): void => {
+  if (isTaihaOverlayTestMode.value) {
+    if (isBlockShieldSwitch.value) {
+      window.api.setTaihaSingekiBlockState([TaihaSingekiBlockState.normalBlock])
+    } else {
+      window.api.setTaihaSingekiBlockState([])
+    }
+    return
+  }
+
+  if (!isTaihaSingekiBlock.value || !isBlockShieldSwitch.value) {
+    window.api.setTaihaSingekiBlockState([])
+    return
+  }
+
+  window.api.setTaihaSingekiBlockState(taihaSingekiBlockStates.value)
+}
+
+const toggleTaihaOverlayTest = (): void => {
+  isTaihaOverlayTestMode.value = !isTaihaOverlayTestMode.value
+  isBlockShieldSwitch.value = true
+  applyShieldState()
+  syncTaihaOverlayViewState()
+}
 
 /////////////////////////////////////////////////////////////////////////////////////
 // game webview関連
@@ -149,7 +259,22 @@ onMounted(() => {
   }
 
   stopSetZoomFactor = ipcRenderer.on(GameChannel.set_zoom_factor, setZoomFactor)
-  stopGuardHitEffect = ipcRenderer.on(GameChannel.guard_hit_effect, guardHitEffect)
+  stopSetTaihaOverlayShieldEnabled = ipcRenderer.on(
+    GameChannel.set_taiha_overlay_shield_enabled,
+    (_event: IpcRendererEvent, enabled: boolean) => {
+      if (isBlockShieldSwitch.value === enabled) {
+        return
+      }
+      isBlockShieldSwitch.value = enabled
+      onBlockShieldSwitchChanged(enabled)
+    }
+  )
+  stopToggleTaihaOverlayTest = ipcRenderer.on(
+    GameChannel.toggle_taiha_overlay_test,
+    () => {
+      toggleTaihaOverlayTest()
+    }
+  )
 
   // 大破進撃防止関連
   cb_port = ApiCallback.set([Api.PORT_PORT, () => onPort()])
@@ -168,6 +293,8 @@ onMounted(() => {
   cb_map_next = ApiCallback.set(
     [Api.REQ_MAP_NEXT, () => onMapNext()]
   )
+
+  syncTaihaOverlayViewState()
 
   debug('game mounted <<')
 })
@@ -189,8 +316,11 @@ onUnmounted(() => {
   stopSetZoomFactor?.()
   stopSetZoomFactor = null
 
-  stopGuardHitEffect?.()
-  stopGuardHitEffect = null
+  stopSetTaihaOverlayShieldEnabled?.()
+  stopSetTaihaOverlayShieldEnabled = null
+
+  stopToggleTaihaOverlayTest?.()
+  stopToggleTaihaOverlayTest = null
 
   if (cb_port) {
     ApiCallback.unset(cb_port)
@@ -288,7 +418,7 @@ function didFrameFinishLoad(event: DidFrameFinishLoadEvent): void {
     const url = getWebviewUnsafe().getURL()
     debug('didFrameFinishLoad', event, url);
     if (url !== Const.GamePageUrl) {
-      return 
+      return
     }
 
     debug('didFrameFinishLoad game top loaded, try click sortie button')
@@ -382,9 +512,13 @@ defineExpose({
 /////////////////////////////////////////////////////////////////////////////////////
 // 大破進撃関連
 function onPort(): void {
+  if (isTaihaOverlayTestMode.value) {
+    return
+  }
   debug('onPort')
   taihaSingekiResult.value = null
   window.api.setTaihaSingekiBlockState([])
+  syncTaihaOverlayViewState()
   clearBlockShieldVisibleTimer()
 }
 
@@ -393,6 +527,9 @@ function onPort(): void {
  * 大破艦がいれば、大破進撃防止UIを表示する
  */
 const checkSingekiBlock = () => {
+  if (isTaihaOverlayTestMode.value) {
+    return
+  }
 
   const result = kcs_stuff.checkTaihaSingeki(kcs_stuff.TaihaCheckPhase.afterBattle)
   debug('onBattleResult', result)
@@ -401,6 +538,7 @@ const checkSingekiBlock = () => {
     debug('onBattleResult: no taiha singeki')
     taihaSingekiResult.value = null
     window.api.setTaihaSingekiBlockState([])
+    syncTaihaOverlayViewState()
     return
   }
 
@@ -409,7 +547,7 @@ const checkSingekiBlock = () => {
   blockShieldVisibleTimer = setTimeout(() => {
     taihaSingekiResult.value = result
     window.api.setTaihaSingekiBlockState(taihaSingekiBlockStates.value)
-    isTaihaWarningInAnimation.value = true
+    syncTaihaOverlayViewState()
     blockShieldVisibleTimer = null
   }, delayMs)
 }
@@ -419,12 +557,15 @@ const checkSingekiBlock = () => {
  * 大破進撃防止判定を行う
  */
 function onBattleResult(): void {
+  if (isTaihaOverlayTestMode.value) {
+    return
+  }
 
   clearBlockShieldVisibleTimer()
-  isTaihaWarningInAnimation.value = false
   isBlockShieldSwitch.value = true
   taihaSingekiRechecked.value = false
   gameState.ctrl_pressed = false
+  syncTaihaOverlayViewState()
 
   debug('onBattleResult: check taiha singeki block.',
     'enable:', gameSetting.taihaSingekiBlockEnable,
@@ -433,6 +574,7 @@ function onBattleResult(): void {
   // オプション設定で無効
   if (! gameSetting.taihaSingekiBlockEnable) {
     debug('onBattleResult: taiha singeki block disabled by option')
+    syncTaihaOverlayViewState()
     return
   }
 
@@ -440,6 +582,7 @@ function onBattleResult(): void {
   if (gameSetting.taihaSingekiBlockSkipSafeCell) {
     if (kcs_stuff.currentIsSafeCell()) {
       debug('onBattleResult: safe cell, skip taiha singeki block check')
+      syncTaihaOverlayViewState()
       return
     }
   }
@@ -456,6 +599,9 @@ function onBattleResult(): void {
  * 退避が行われた場合は、再度大破進撃判定を行う
  */
 function onGobackPort(): void {
+  if (isTaihaOverlayTestMode.value) {
+    return
+  }
 
   // 大破進撃判定済みで再度判定を行う
   // オプション設定で無効であっても一度動作した大破進撃チェックは継続して動作させる
@@ -473,157 +619,33 @@ function onGobackPort(): void {
     taihaSingekiRechecked.value = true
     taihaSingekiResult.value = result
     window.api.setTaihaSingekiBlockState(taihaSingekiBlockStates.value)
+    syncTaihaOverlayViewState()
   } else {
     debug('onGobackPort: no taiha singeki')
 
     // UI非表示
     taihaSingekiResult.value = null
     window.api.setTaihaSingekiBlockState([])
+    syncTaihaOverlayViewState()
   }
 }
 
 function onMapNext(): void {
+  if (isTaihaOverlayTestMode.value) {
+    return
+  }
   debug('onMapNext')
   taihaSingekiResult.value = null
   window.api.setTaihaSingekiBlockState([])
+  syncTaihaOverlayViewState()
 }
-
-const isTaihaSingekiBlock = computed<boolean>(() => {
-  const result = taihaSingekiResult.value
-  if (!result) {
-    debug('isTaihaAdvanceBlockerVisible: no result')
-    return false
-  }
-  debug('isTaihaAdvanceBlockerVisible: result', result)
-  return result.isTaihaSingeki
-})
-
-type TaihaShipInfo = {
-  // Lv.xx艦名(修理,女神)
-  // Lv.xx艦名(ダメコンなし)
-  shipText: string
-  hasMegami: boolean
-  hasRepair: boolean
-  noDamageControl: boolean
-  subText: string
-}
-
-const taihaShipInfos = computed<TaihaShipInfo[]>(() => {
-  const result = taihaSingekiResult.value
-  if (!result || !result.isTaihaSingeki) {
-    debug('taihaShipInfos: no result')
-    return []
-  }
-  let escapeTextAdded = false
-  return result.infos.map((info) => {
-    let subTexts: string[] = []
-    const hasMegami = info.equips.includes(kcs_stuff.EquipType.flagship_megami) ||
-      info.equips.includes(kcs_stuff.EquipType.megami)
-    const hasRepair = info.equips.includes(kcs_stuff.EquipType.flagship_repair) ||
-      info.equips.includes(kcs_stuff.EquipType.repair)
-    const noDamageControl = info.equips.length === 0
-    if (noDamageControl) {
-      subTexts.push('ダメコンなし')
-    }
-
-    // 退避可能艦表示
-    // 再チェック後では表示しない
-    if (!taihaSingekiRechecked.value) {
-      if (info.canEscape && !escapeTextAdded) {
-        subTexts.push('退避可')
-        escapeTextAdded = true
-      }
-    }
-
-    const api = info.api_ship
-    const mst = svdata.mstShip(api.api_ship_id)
-    const shipText = `Lv.${api.api_lv}${mst?.api_name ?? ''}`
-    const subText = subTexts.join(',')
-
-    return {
-      shipText,
-      subText,
-      hasMegami,
-      hasRepair,
-      noDamageControl
-    }
-  })
-})
 
 const onBlockShieldSwitchChanged = (enabled: boolean): void => {
   debug('block shield changed', enabled)
-
-  if (!enabled) {
-    // シールドOFFにした場合、進撃操作可能
-    window.api.setTaihaSingekiBlockState([])
-  } else {
-    // シールドONにした場合、進撃操作制限
-    window.api.setTaihaSingekiBlockState(taihaSingekiBlockStates.value)
-  }
+  isBlockShieldSwitch.value = enabled
+  applyShieldState()
+  syncTaihaOverlayViewState()
 }
-
-const isShieldVisible = (state: TaihaSingekiBlockState): boolean => {
-
-  // 大破判定無しでは非表示
-  // ボタンを押して進撃、もしくはポートに戻った場合
-  if (!isTaihaSingekiBlock.value) {
-    debug('isShieldVisible: no taiha, shield hidden')
-    return false
-  }
-
-  // Ctrlキー押下時ならシールド非表示
-  if (gameState.ctrl_pressed) {
-    debug('isShieldVisible: ctrl pressed, shield hidden')
-    return false
-  }
-
-  // switch offで非表示
-  if (!isBlockShieldSwitch.value) {
-    debug('isShieldVisible: switch off, shield hidden')
-    return false
-  }
-
-  // 表示場所判定
-  const visible = taihaSingekiBlockStates.value.includes(state)
-  debug('isShieldVisible', state, 'visible:', visible, 'states:', taihaSingekiBlockStates.value)
-  return visible
-}
-
-// 全体のオーバレイはアニメーション完了で要素を削除する
-const isTaihaOverlayVisible = computed<boolean>(() => {
-  debug('isTaihaOverlayVisible',
-  'isTaihaSingekiBlock:', isTaihaSingekiBlock.value, 
-  'isTaihaWarningInAnimation:', isTaihaWarningInAnimation.value)
-  
-  if(isTaihaSingekiBlock.value) {
-    return true
-  }
-
-  return isTaihaWarningInAnimation.value
-})
-
-const onTaihaWarningAfterLeave = (): void => {
-  debug('onTaihaWarningAfterLeave')
-  isTaihaWarningInAnimation.value = false
-}
-
-function guardHitEffect(_event: IpcRendererEvent, state: TaihaSingekiBlockState): void {
-  debug(GameChannel.guard_hit_effect, state)
-  if (state === TaihaSingekiBlockState.normalBlock) {
-    normalBlockShieldRef.value?.doGuardHitEffect()
-  } else if (state === TaihaSingekiBlockState.repairBlock) {
-    repairBlockShieldRef.value?.doGuardHitEffect()
-  } else if (state === TaihaSingekiBlockState.megamiBlock) {
-    megamiBlockShieldRef.value?.doGuardHitEffect()
-  }
-}
-
-const normalBlockRectRate = Const.TaihaSingeki.normalBlockRect
-const isNormalBlockVisible = computed<boolean>(() => isShieldVisible(TaihaSingekiBlockState.normalBlock))
-const repairBlockRectRate = Const.TaihaSingeki.repairBlockRect
-const isRepairBlockVisible = computed<boolean>(() => isShieldVisible(TaihaSingekiBlockState.repairBlock))
-const megamiBlockRectRate = Const.TaihaSingeki.megamiBlockRect
-const isMegamiBlockVisible = computed<boolean>(() => isShieldVisible(TaihaSingekiBlockState.megamiBlock))
 
 </script>
 <template>
@@ -638,55 +660,6 @@ const isMegamiBlockVisible = computed<boolean>(() => isShieldVisible(TaihaSingek
       nodeIntegrationInSubFrames="true"
       webPreferences="contextIsolation=no, sandbox=no"
     ></webview>
-
-    <div
-      v-if="isTaihaOverlayVisible"
-      class="taiha-overlay"
-    >
-      <transition name="slide-effect" appear @after-leave="onTaihaWarningAfterLeave">
-        <div 
-          v-if="isTaihaSingekiBlock"
-          class="taiha-warning-banner">
-          <div class="banner-title"><WarningIcon />大破艦を検知しました</div>
-          <div class="banner-text">
-            轟沈防止で進撃操作を制限しています。シールドOFFにより操作可能です。
-          </div>
-          <div class="banner-text">
-            大破艦：<template v-for="(info, index) in taihaShipInfos" 
-              :key="`${index}-${info.shipText}-${info.subText}`"><span 
-              class="taiha-info">{{ info.shipText }}&#12308;<img
-              v-if="info.hasRepair" class="dameconimg" src="../assets/img/app/repair.png"/><img 
-              v-if="info.hasMegami" class="dameconimg" src="../assets/img/app/megami.png"/><WarningIcon 
-              v-if="info.noDamageControl" />{{ info.subText }}&#12309;</span><template v-if="index < taihaShipInfos.length - 1">, </template>
-            </template>
-          </div>
-        </div>
-      </transition>
-
-      <transition name="slide-effect" appear>
-        <b-switch
-          v-if="isTaihaSingekiBlock"
-          v-model="isBlockShieldSwitch"
-          type="is-danger"
-          class="block-shield-toggle"
-          :left-label="true"
-          @update:modelValue="onBlockShieldSwitchChanged"
-        ><span class="switch-text">{{ isBlockShieldSwitch ? 'シールドON' : 'シールドOFF' }}</span></b-switch>
-      </transition>
-
-      <BlockShield 
-        v-if="isNormalBlockVisible" 
-        ref="normalBlockShieldRef"
-        :rect-rate="normalBlockRectRate" />
-      <BlockShield 
-        v-if="isRepairBlockVisible" 
-        ref="repairBlockShieldRef"
-        :rect-rate="repairBlockRectRate" />
-      <BlockShield 
-        v-if="isMegamiBlockVisible" 
-        ref="megamiBlockShieldRef"
-        :rect-rate="megamiBlockRectRate" />
-    </div>
 
   </div>
 </template>

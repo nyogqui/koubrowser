@@ -39,7 +39,10 @@ export const MainChannel = {
   check_for_updates: 'check_for_updates',
   download_update: 'download_update',
   restart_and_install_update: 'restart_and_install_update',
-  set_taiha_singeki_block_state: 'set_taiha_singeki_block_state', 
+  set_taiha_singeki_block_state: 'set_taiha_singeki_block_state',
+  set_taiha_overlay_view_state: 'set_taiha_overlay_view_state',
+  set_taiha_overlay_shield_enabled: 'set_taiha_overlay_shield_enabled',
+  set_taiha_overlay_mouse_events: 'set_taiha_overlay_mouse_events',
 } as const
 export type MainChannel = (typeof MainChannel)[keyof typeof MainChannel]
 
@@ -50,6 +53,21 @@ export const TaihaSingekiBlockState = {
   megamiBlock: 3, // 旗艦進撃ブロック(女神)
 } as const
 export type TaihaSingekiBlockState = (typeof TaihaSingekiBlockState)[keyof typeof TaihaSingekiBlockState]
+
+export type TaihaOverlayShipInfo = {
+  shipText: string
+  hasMegami: boolean
+  hasRepair: boolean
+  noDamageControl: boolean
+  subText: string
+}
+
+export type TaihaOverlayViewState = {
+  isTaihaSingekiBlock: boolean
+  isBlockShieldSwitch: boolean
+  blockStates: TaihaSingekiBlockState[]
+  shipInfos: TaihaOverlayShipInfo[]
+}
 
 /**
  * from main to renderer
@@ -80,6 +98,10 @@ export const GameChannel = {
   resume: 'resume',
   set_ctrl_state: 'set_ctrl_state', // ctrlキー押下状態 args: 押下状態
   guard_hit_effect: 'guard_hit_effect', // 進撃ブロックでのガードヒットエフェクト要求
+  set_taiha_overlay_view_state: 'set_taiha_overlay_view_state', // 大破進撃オーバーレイ表示状態 args: TaihaOverlayViewState
+  set_taiha_overlay_shield_enabled: 'set_taiha_overlay_shield_enabled', // 大破進撃オーバーレイスイッチ操作 args: boolean
+  set_taiha_overlay_hover_state: 'set_taiha_overlay_hover_state', // 大破進撃シールドのhover状態 args: TaihaSingekiBlockState[]
+  toggle_taiha_overlay_test: 'toggle_taiha_overlay_test', // 大破進撃オーバーレイ表示テスト切替
 } as const
 export type GameChannel = (typeof GameChannel)[keyof typeof GameChannel]
 
@@ -109,7 +131,7 @@ export type TimelineResult = [QuestContext, BattleRecord[]]
 export const OptionChannel = {
   getCurrentSetting: 'option:get-current-setting',
   readyToShow: 'option:ready-to-show',
-  selectCaptureSavePath: 'option:select-capture-save-path', 
+  selectCaptureSavePath: 'option:select-capture-save-path',
   selectExtensionPath: 'option:select-extension-path',
   minimize: 'option:minimize',
   close: 'option:close',

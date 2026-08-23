@@ -4,7 +4,7 @@ import type { Api } from './api'
 import { MainChannel, MainMessage, AirbaseSpot, AirbaseTargetSpots } from '@common/channel'
 import type { MstMapinfo, ApiMap } from '@common/kcs'
 import type { Spot } from '@common/map'
-import type { TimelineResult, TaihaSingekiBlockState } from '@common/channel'
+import type { TimelineResult, TaihaSingekiBlockState, TaihaOverlayViewState } from '@common/channel'
 import type { UpdateCheckResult, UpdateStateSnapshot } from '@common/type'
 import type { Query, QueryReturn, PortChartData } from '@common/record'
 import type { AggregatedCellRank, AggregatedCellShipDrop } from '@common/calc_record'
@@ -149,7 +149,7 @@ const api: Api = {
   getInheritScoreList(): Promise<InheritScoreList> {
     return ipcRenderer.invoke(MainChannel.get_inherit_score_list)
   },
-  
+
   saveInheritScoreList(list: InheritScoreList): void {
     ipcRenderer.invoke(MainChannel.save_inherit_score_list, list)
   },
@@ -190,6 +190,18 @@ const api: Api = {
 
   setTaihaSingekiBlockState(states: TaihaSingekiBlockState[]): void {
     ipcRenderer.invoke(MainChannel.set_taiha_singeki_block_state, states)
+  },
+
+  setTaihaOverlayViewState(state: TaihaOverlayViewState): void {
+    ipcRenderer.invoke(MainChannel.set_taiha_overlay_view_state, state)
+  },
+
+  setTaihaOverlayShieldEnabled(enabled: boolean): void {
+    ipcRenderer.invoke(MainChannel.set_taiha_overlay_shield_enabled, enabled)
+  },
+
+  setTaihaOverlayMouseEvents(enabled: boolean): void {
+    ipcRenderer.invoke(MainChannel.set_taiha_overlay_mouse_events, enabled)
   }
 
 }

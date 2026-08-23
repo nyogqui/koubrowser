@@ -1,4 +1,10 @@
-import type { TimelineResult, TaihaSingekiBlockState, AirbaseTargetSpots, AirbaseSpot } from '@common/channel'
+import type {
+  TimelineResult,
+  TaihaSingekiBlockState,
+  TaihaOverlayViewState,
+  AirbaseTargetSpots,
+  AirbaseSpot,
+} from '@common/channel'
 import type { UpdateCheckResult, UpdateStateSnapshot } from '@common/type'
 import type { Query, QueryReturn, PortChartData } from '@common/record'
 import type { MstMapinfo, ApiMap } from '@common/kcs'
@@ -49,4 +55,7 @@ export interface Api {
   onUpdateDownloadProgress(cb: (percent: number) => void): () => void
   onStartupUpdateChecked(cb: (result: UpdateCheckResult) => void): () => void
   setTaihaSingekiBlockState(states: TaihaSingekiBlockState[]): void
+  setTaihaOverlayViewState(state: TaihaOverlayViewState): void
+  setTaihaOverlayShieldEnabled(enabled: boolean): void
+  setTaihaOverlayMouseEvents(enabled: boolean): void
 }

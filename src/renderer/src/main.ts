@@ -24,9 +24,23 @@ import { MainRendererState } from '@renderer/store/renderer_state'
 if (EnvRenderer.isAssist) {
   document.title = '甲ブラウザ アシストウィンドウ';
 }
+if (EnvRenderer.isTaihaOverlay) {
+  document.title = '甲ブラウザ 大破進撃オーバーレイ';
+  document.documentElement.classList.add('taiha-overlay-mode')
+  document.documentElement.style.backgroundColor = 'transparent'
+  document.documentElement.style.background = 'transparent'
+
+  if (document.body) {
+    document.body.style.backgroundColor = 'transparent'
+    document.body.style.background = 'transparent'
+    document.body.style.margin = '0'
+    document.body.style.width = '100%'
+    document.body.style.height = '100%'
+  }
+}
 
 // ボタン状態はアプリコンポ表示前に反映させておく
-if (! EnvRenderer.isAssist) {
+if (!EnvRenderer.isAssist && !EnvRenderer.isTaihaOverlay) {
   if (MainRendererState.isCurrentAppLaunch()) {
     // 最新の状態に更新時は以前の状態を取得
     gameState.muted = MainRendererState.getMuted()
@@ -37,6 +51,18 @@ if (! EnvRenderer.isAssist) {
 }
 
 streamInitialize(async () => {
+
+  if (EnvRenderer.isTaihaOverlay) {
+    const appRoot = document.getElementById('app')
+    if (appRoot) {
+      appRoot.style.background = 'transparent'
+      appRoot.style.backgroundColor = 'transparent'
+      appRoot.style.width = '100%'
+      appRoot.style.height = '100%'
+      appRoot.style.margin = '0'
+      appRoot.style.padding = '0'
+    }
+  }
 
   // initialized svdata. start vue app.
   const app = createApp(App)
@@ -63,7 +89,7 @@ ipcRenderer.on(GameChannel.set_app_state, (_event, state: AppState) => {
   Object.assign(appState, state)
 })
 
-if (! EnvRenderer.isAssist) {
+if (!EnvRenderer.isAssist && !EnvRenderer.isTaihaOverlay) {
   ipcRenderer.on(GameChannel.set_ctrl_state, (_event, pressed: boolean) => {
     //console.log(GameChannel.set_ctrl_state, pressed)
     gameState.ctrl_pressed = pressed

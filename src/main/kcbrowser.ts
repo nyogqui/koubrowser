@@ -36,6 +36,7 @@ import {
   AirbaseSpot,
   OptionChannel,
   TaihaSingekiBlockState,
+  TaihaOverlayViewState,
 } from '@common/channel'
 import moment from 'moment'
 import { KcRecord } from '@main/kcrecord'
@@ -92,15 +93,15 @@ const setUseragent = (): void => {
 
 /**
  * autoUpdaterの設定
- * 
+ *
  * update checkでローカルホストに更新用ファイルを配置し確認する場合、
  * まず以下の環境変数を設定する
  * $env:KOU_UPDATE_URL='http://localhost:8080/releases'
- * 
+ *
  * httpサーバは
  * scripts/run-http-server-for-update-check.bat
  * から起動できる。scriptsフォルダ配下に更新用ファイルを配置する
- * 
+ *
  * 後は開発モードで動かせばよい(npm run dev)
  */
 const getUpdateFeedUrl = (): string | null => {
@@ -125,7 +126,7 @@ autoUpdater.allowDowngrade = false
 autoUpdater.forceDevUpdateConfig = Env.isDevelopment
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = false
-autoUpdater.autoRunAppAfterInstall = false    
+autoUpdater.autoRunAppAfterInstall = false
 debug('auto updater currentVersion', autoUpdater.currentVersion.format())
 
 type UpdateChannel = 'beta' | 'latest'
@@ -158,7 +159,7 @@ const defaultGameOnlySize = (): { width: number; height: number } => {
 }
 
 /**
- * 
+ *
  */
 const calcMainWindowMinSize = (): { minWidth: number; minHeight: number, frame_ratio: number } => {
   const defGameOnlySize = defaultGameOnlySize()
@@ -171,27 +172,27 @@ const calcMainWindowMinSize = (): { minWidth: number; minHeight: number, frame_r
 
 
 /**
- * 
+ *
  */
 const isAssistRestricted = (): boolean => {
   //screen.getAllDisplays().forEach(el => console.log(el));
   // const pdisp = screen.getPrimaryDisplay()
   // const ok = [pdisp].some((el) => {
-  //   return el.bounds.height >= Const.InGameAssistDisplayRequirementHeight && 
+  //   return el.bounds.height >= Const.InGameAssistDisplayRequirementHeight &&
   //   el.bounds.width >= Const.InGameAssistDisplayRequirementWidth
   // })
   //debug('primary display:', pdisp, 'has required size:', ok)
   const ok = screen
     .getAllDisplays()
     .some((el) => {
-      return el.bounds.height >= Const.InGameAssistDisplayRequirementHeight && 
+      return el.bounds.height >= Const.InGameAssistDisplayRequirementHeight &&
       el.bounds.width >= Const.InGameAssistDisplayRequirementWidth}
     )
   return !ok;
 }
 
 /**
- * 
+ *
  */
 const installVueDevtoolsIfDev = (): void => {
   if (Env.isDevelopment) {
@@ -247,6 +248,7 @@ export class KcApp {
   private main_window: BrowserWindow
   private assist_window: BrowserWindow | null = null
   private option_window: BrowserWindow | null = null
+  private taiha_overlay_window: BrowserWindow | null = null
   private frame_ratio: number
   private kcrecord: KcRecord | null = null
   private cbBasicFirst: number = 0
@@ -266,6 +268,12 @@ export class KcApp {
     downloadPercent: null,
   }
   private taihaSingekiBlockStates: TaihaSingekiBlockState[] = []
+  private taihaOverlayViewState: TaihaOverlayViewState = {
+    isTaihaSingekiBlock: false,
+    isBlockShieldSwitch: true,
+    blockStates: [],
+    shipInfos: [],
+  }
   private ctrl_key_state: boolean = false
 
   public get mainWindow(): BrowserWindow {
@@ -293,7 +301,7 @@ export class KcApp {
     }
   }
 
-  constructor() { 
+  constructor() {
     kcapp = this
 
     const appLaunchId = crypto.randomUUID()
@@ -438,6 +446,7 @@ export class KcApp {
       }
     }
     this.main_window = new BrowserWindow(mainWindowOptions)
+    KcApp.setCustomMenu(this.main_window)
 
     // ゲームのみ表示で保存されていたサイズを復元
     const restoredGameOnlySize = appSetting.restoreGameOnlySize()
@@ -501,6 +510,7 @@ export class KcApp {
 
     // open app html
     openAppHtml(this.mainWindow)
+    this.openTaihaOverlayWindow()
 
     // アシストウインドウを別画面で表示する場合
     // display要件を満たすディスプレイがない場合はアシストウインドウを別画面で表示する
@@ -517,6 +527,7 @@ export class KcApp {
     })
 
     this.mainWindow.on('closed', () => this.onClosed())
+    this.mainWindow.on('move', () => this.updateTaihaOverlayBounds())
     this.mainWindow.on('resize', () => this.onResize())
     this.mainWindow.on('will-resize', (event, newBounds, _details) =>
       this.onWillResize(event, newBounds)
@@ -551,14 +562,14 @@ export class KcApp {
         const primaryDisplay = screen.getPrimaryDisplay()
         const bounds = primaryDisplay.workArea
         const y = Math.max(bounds.y, bounds.y + (bounds.height-Const.InGameAssistDisplayRequirementHeight)/2)
-        // debug('assist window position for restricted:', 
+        // debug('assist window position for restricted:',
         //   { x: bounds.x + bounds.width - Const.AssistWidth, y, display: primaryDisplay,
         //     assistWindowWidth: Const.AssistWidth,
         //     bounds: bounds
         //   })
-        return { 
-          x: bounds.x + bounds.width - Const.AssistWidth, 
-          y, 
+        return {
+          x: bounds.x + bounds.width - Const.AssistWidth,
+          y,
           display: primaryDisplay }
       }
 
@@ -586,9 +597,9 @@ export class KcApp {
     // 表示サイズ計算
     const assistWindowSize = ((): { width: number; height: number } => {
       return {
-        width: Const.AssistWidth, 
+        width: Const.AssistWidth,
         height: Math.min(
-          Const.InGameAssistDisplayRequirementHeight - Const.TitleBarHeight, 
+          Const.InGameAssistDisplayRequirementHeight - Const.TitleBarHeight,
           assistWindowPosition.display.workArea.height)
       }
     })()
@@ -605,7 +616,7 @@ export class KcApp {
       display: assistWindowPosition.display,
     })
 
-    const iconPath = app.isPackaged 
+    const iconPath = app.isPackaged
       ? path.join(process.resourcesPath, 'resources/app.ico') : path.join(__dirname, '../../resources/app.ico')
     this.assist_window = new BrowserWindow({
       title: '甲ブラウザ',
@@ -740,6 +751,95 @@ export class KcApp {
   }
 
   /**
+   * 大破進撃オーバーレイウインドウを開く
+   */
+  private openTaihaOverlayWindow(): void {
+    if (this.taiha_overlay_window) {
+      this.updateTaihaOverlayBounds()
+      return
+    }
+
+    const overlayBounds = this.calcTaihaOverlayBounds()
+    const additionalArguments: string[] = [Const.ArgIsTaihaOverlay]
+    if (Env.isTestMode) {
+      additionalArguments.push(Const.ArgIsTestMode)
+    }
+
+    this.taiha_overlay_window = new BrowserWindow({
+      parent: this.main_window,
+      show: false,
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      hasShadow: false,
+      skipTaskbar: true,
+      focusable: false,
+      useContentSize: true,
+      x: overlayBounds.x,
+      y: overlayBounds.y,
+      width: overlayBounds.width,
+      height: overlayBounds.height,
+      resizable: false,
+      movable: false,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+        nodeIntegrationInSubFrames: true,
+        spellcheck: false,
+        preload: path.join(getMainDir(), '../preload/index.js'),
+        additionalArguments,
+        sandbox: false,
+      },
+    })
+    this.taiha_overlay_window.setMenu(null)
+    this.taiha_overlay_window.setIgnoreMouseEvents(true)
+    this.taiha_overlay_window.setAlwaysOnTop(gameSetting.topmost, 'screen-saver')
+    this.taiha_overlay_window.on('closed', () => {
+      this.taiha_overlay_window = null
+    })
+
+    openAppHtml(this.taiha_overlay_window)
+    this.taiha_overlay_window.showInactive()
+  }
+
+  /**
+   * メインウインドウ上のゲーム領域にオーバーレイを追従させる
+   */
+  private updateTaihaOverlayBounds(): void {
+    if (!this.taiha_overlay_window || this.taiha_overlay_window.isDestroyed()) {
+      return
+    }
+
+    const bounds = this.calcTaihaOverlayBounds()
+    this.taiha_overlay_window.setBounds(bounds, false)
+
+    // 親ウインドウが前面化/最前面化されたときに重なり順を維持する
+    this.taiha_overlay_window.moveTop()
+  }
+
+  /**
+   * 大破進撃オーバーレイウインドウの表示矩形を算出
+   */
+  private calcTaihaOverlayBounds(): Rectangle {
+    const windowBounds = this.main_window.getBounds()
+
+    const width = gameSetting.isAssistInGame
+      ? Const.GameWidth
+      : windowBounds.width
+
+    const height = gameSetting.isAssistInGame
+      ? Const.GameHeight + Const.GameBarHeight
+      : Math.max(1, windowBounds.height - Const.TitleBarHeight)
+
+    return {
+      x: windowBounds.x,
+      y: windowBounds.y + Const.TitleBarHeight,
+      width,
+      height,
+    }
+  }
+
+  /**
    *
    */
   private closeRelatedWindows(): void {
@@ -752,10 +852,14 @@ export class KcApp {
         appSetting.updateAssistWindowState(this.assist_window, false)
       }
     }
+
+    if (this.taiha_overlay_window && !this.taiha_overlay_window.isDestroyed()) {
+      this.taiha_overlay_window.close()
+    }
   }
 
   /**
-   * 
+   *
    */
   private setupHandlers() {
     app.on('web-contents-created', (event, webContents) =>
@@ -817,10 +921,10 @@ export class KcApp {
     ipcMain.handle(MainChannel.aggregate_ship_drop, (_event, ship_id) =>
       this.onChannelAggregateShipDrop(ship_id)
     )
-    ipcMain.handle(MainChannel.get_inherit_score_list, async () => 
+    ipcMain.handle(MainChannel.get_inherit_score_list, async () =>
       this.onChannelGetInheritScoreList()
     )
-    ipcMain.handle(MainChannel.save_inherit_score_list, (_event, list) => 
+    ipcMain.handle(MainChannel.save_inherit_score_list, (_event, list) =>
       this.onChannelSaveInheritScoreList(list)
     )
     ipcMain.handle(MainChannel.get_update_state, async () =>
@@ -838,6 +942,15 @@ export class KcApp {
     ipcMain.handle(MainChannel.set_taiha_singeki_block_state, (_event, states) =>
       this.onChannelSetTaihaSingekiBlockState(states)
     )
+    ipcMain.handle(MainChannel.set_taiha_overlay_view_state, (_event, state) =>
+      this.onChannelSetTaihaOverlayViewState(state)
+    )
+    ipcMain.handle(MainChannel.set_taiha_overlay_shield_enabled, (_event, enabled) =>
+      this.onChannelSetTaihaOverlayShieldEnabled(enabled)
+    )
+    ipcMain.handle(MainChannel.set_taiha_overlay_mouse_events, (event, enabled) =>
+      this.onChannelSetTaihaOverlayMouseEvents(event, enabled)
+    )
     autoUpdater.on('download-progress', (progress) =>
       this.notifyUpdateDownloadProgress(progress.percent)
     )
@@ -852,7 +965,7 @@ export class KcApp {
     ipcMain.on(kcsapi_hook.HookedType.serverid, (_event, data) => this.onApiHookServerId(data));
     ipcMain.on(kcsapi_hook.HookedType.loadstart, (_event, data) => this.onApiHookLoadStart(data, true));
     ipcMain.on(kcsapi_hook.HookedType.loadend, (_event, data) => this.onApiHookLoadEnd(data, true));
-    if (Env.isDevelopment) { 
+    if (Env.isDevelopment) {
       ipcMain.on(kcsapi_hook.HookedType.unk_loadstart, (_event, data) => this.onApiHookUnknownLoadStart(data));
       ipcMain.on(kcsapi_hook.HookedType.unk_loadend, (_event, data) => this.onApiHookUnknownLoadEnd(data));
     }
@@ -939,6 +1052,15 @@ export class KcApp {
             label: '開発者ツール',
             accelerator: 'F12',
             role: 'toggleDevTools',
+          },
+          { type: 'separator' },
+          {
+            label: '大破オーバーレイ表示テスト切替',
+            accelerator: 'Ctrl+Shift+T',
+            click: () => {
+              const app = getKcApp()
+              app?.mainWindow.webContents.send(GameChannel.toggle_taiha_overlay_test)
+            }
           }
         ]
       },
@@ -948,8 +1070,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param window 
+   *
+   * @param window
    */
   private static setCustomMenu(window: BrowserWindow): void {
     window.setMenu(KcApp.buildCustomMenu())
@@ -985,7 +1107,7 @@ export class KcApp {
   private onWebContentsCreated(_event: Event, webContents: WebContents): void {
     debug('onWebContentsCreated', _event, 'url:', webContents.getURL());
 
-    const didCreateWindowHandler = (window: BrowserWindow, detail: DidCreateWindowDetails) => 
+    const didCreateWindowHandler = (window: BrowserWindow, detail: DidCreateWindowDetails) =>
       this.onDidCreateWindow(window, detail, webContents)
 
     webContents.addListener('did-create-window', (window, detail) => didCreateWindowHandler(window, detail))
@@ -998,7 +1120,7 @@ export class KcApp {
   }
 
   /**
-   * 
+   *
    */
   private get isMainWindowDestroyed(): boolean {
     const mainWindow = this.main_window
@@ -1015,20 +1137,71 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param state 
+   *
+   * @param state
    */
   private setCtrlKeyState(state: boolean): void {
     debug('setCtrlKeyState', state)
     this.ctrl_key_state = state
     this.main_window.webContents.send(GameChannel.set_ctrl_state, state)
+    this.taiha_overlay_window?.webContents.send(GameChannel.set_ctrl_state, state)
+  }
+
+  /**
+   * 大破進撃オーバーレイへブロック状態を通知
+   */
+  private notifyTaihaOverlayStates(): void {
+    if (!this.taiha_overlay_window || this.taiha_overlay_window.isDestroyed()) {
+      return
+    }
+    this.taiha_overlay_window.webContents.send(
+      GameChannel.set_taiha_overlay_view_state,
+      this.taihaOverlayViewState
+    )
+  }
+
+  /**
+   * 大破進撃オーバーレイの表示状態を更新
+   */
+  private onChannelSetTaihaOverlayViewState(state: TaihaOverlayViewState): void {
+    this.taihaOverlayViewState = {
+      isTaihaSingekiBlock: !!state?.isTaihaSingekiBlock,
+      isBlockShieldSwitch: !!state?.isBlockShieldSwitch,
+      blockStates: Array.isArray(state?.blockStates) ? [...state.blockStates] : [],
+      shipInfos: Array.isArray(state?.shipInfos) ? [...state.shipInfos] : [],
+    }
+    this.notifyTaihaOverlayStates()
+  }
+
+  /**
+   * オーバーレイ上のシールドON/OFF操作をgameレンダラーへ転送
+   */
+  private onChannelSetTaihaOverlayShieldEnabled(enabled: boolean): void {
+    if (this.isMainWindowDestroyed) {
+      return
+    }
+    this.main_window.webContents.send(GameChannel.set_taiha_overlay_shield_enabled, !!enabled)
+  }
+
+  /**
+   * スイッチ操作時だけオーバーレイのマウス入力を有効化
+   */
+  private onChannelSetTaihaOverlayMouseEvents(
+    event: IpcMainInvokeEvent,
+    enabled: boolean
+  ): void {
+    if (!this.taiha_overlay_window || event.sender !== this.taiha_overlay_window.webContents) {
+      return
+    }
+
+    this.taiha_overlay_window.setIgnoreMouseEvents(!enabled)
   }
 
   /**
    * キー入力イベント処理
    * CTRLキー押下で轟沈防止画面クリックを可とするためにgame側レンダラに通知する
-   * 
-   * @param input 
+   *
+   * @param input
    */
   private onBeforeInputEvent(input: Input): void {
     if (input.key === 'Control') {
@@ -1041,7 +1214,7 @@ export class KcApp {
       if (input.type === 'keyDown') {
         this.setCtrlKeyState(true)
       }
-      
+
       if (input.type === 'keyUp') {
         this.setCtrlKeyState(false)
       }
@@ -1050,33 +1223,45 @@ export class KcApp {
 
   /**
    * 大破進撃ブロック状態をmainプロセスに設定
-   * 
+   *
    * ブロック状態をmainプロセスで持つ理由は以下の通り
    *   以下の操作をブロックするため
    *   1) 右クリック押しっぱなしのまま進撃ボタンへマウス移動
    *   2) 進撃ボタンで右クリックを離す
    *   3) ブロック要素がボタン上に存在しても進撃ボタンが押下されてしまう
    *   本操作ブロックのため、mainプロセスで右クリックが離された場所がBlock UI上の場合イベントをpreventする
-   * 
-   * @param state 
+   *
+   * @param state
    */
   private onChannelSetTaihaSingekiBlockState(states: TaihaSingekiBlockState[]): void {
     debug('onChannelSetTaihaSingekiBlockState', states)
     this.taihaSingekiBlockStates = [...states]
+    this.taihaOverlayViewState.blockStates = [...states]
+    this.notifyTaihaOverlayStates()
   }
 
   /**
-   * 
+   *
    */
   private onBeforeMouseEvent(event: Event, mouse: MouseInputEvent): void {
+    if (mouse.type === 'mouseMove') {
+      this.updateTaihaOverlayMouseEvents()
+    }
+
     if (! this.taihaSingekiBlockStates.length) {
+      if (mouse.type === 'mouseMove') {
+        this.taiha_overlay_window?.webContents.send(GameChannel.set_taiha_overlay_hover_state, [])
+      }
       return
     }
     if (this.ctrl_key_state) {
+      if (mouse.type === 'mouseMove') {
+        this.taiha_overlay_window?.webContents.send(GameChannel.set_taiha_overlay_hover_state, [])
+      }
       debug('onBeforeMouseEvent mouseUp ctrl key pressed, ignore block')
       return
     }
-    if (mouse.type !== 'mouseUp') {
+    if (mouse.type !== 'mouseUp' && mouse.type !== 'mouseMove') {
       return
     }
 
@@ -1099,7 +1284,7 @@ export class KcApp {
       const blockUIRect: Rectangle = {
         x: Math.floor(Const.GameWidth * rectRate.left),
         // マウスイベントでのyはゲーム内window座標によりゲーム外上部バナー分を補正する
-        y: Math.floor((Const.GameHeight + Const.GameBarHeight) * rectRate.top) - Const.GameBarHeight, 
+        y: Math.floor((Const.GameHeight + Const.GameBarHeight) * rectRate.top) - Const.GameBarHeight,
         width: Math.round(Const.GameWidth * rectRate.width),
         height: Math.round((Const.GameHeight + Const.GameBarHeight) * rectRate.height)
       }
@@ -1114,12 +1299,12 @@ export class KcApp {
       }
 
       let ret = false
-      if ((blockUIRect.x <= mouse.x) && (mouse.x <= (blockUIRect.x + blockUIRect.width)) && 
+      if ((blockUIRect.x <= mouse.x) && (mouse.x <= (blockUIRect.x + blockUIRect.width)) &&
           (blockUIRect.y <= mouse.y) && (mouse.y <= (blockUIRect.y + blockUIRect.height))) {
         ret = true
       }
 
-      debug('taihaSingekiBlockUI mouseUp ishit:', ret, 
+      debug('taihaSingekiBlockUI mouseUp ishit:', ret,
         'state:', state, 'blockUIRect:', blockUIRect,
         'mouseX:', mouse.x, 'mouseY:', mouse.y, 'zoomFactor:', gameSetting.zoom_factor)
 
@@ -1128,11 +1313,49 @@ export class KcApp {
 
     const states = this.taihaSingekiBlockStates
     const hitted = states.find((state) => hittest(state))
+    if (mouse.type === 'mouseMove') {
+      this.taiha_overlay_window?.webContents.send(
+        GameChannel.set_taiha_overlay_hover_state,
+        hitted ? [hitted] : []
+      )
+      return
+    }
+
     if (hitted) {
       debug('onBeforeMouseEvent mouseUp in block area, prevent default')
       event.preventDefault()
       this.main_window.webContents.send(GameChannel.guard_hit_effect, hitted)
+      this.taiha_overlay_window?.webContents.send(GameChannel.guard_hit_effect, hitted)
     }
+  }
+
+  /**
+   * オーバーレイのスイッチ領域だけマウス入力を受け付ける
+   */
+  private updateTaihaOverlayMouseEvents(): void {
+    const overlayWindow = this.taiha_overlay_window
+    if (!overlayWindow || overlayWindow.isDestroyed()) {
+      return
+    }
+
+    const viewState = this.taihaOverlayViewState
+    if (!viewState.isTaihaSingekiBlock) {
+      overlayWindow.setIgnoreMouseEvents(true)
+      return
+    }
+
+    const bounds = overlayWindow.getBounds()
+    const cursor = screen.getCursorScreenPoint()
+    const switchRect = {
+      x: bounds.x + Math.floor(bounds.width * 0.73) + 12,
+      y: bounds.y + Math.floor(bounds.height * 0.105),
+      width: 137,
+      height: 32,
+    }
+    const isInSwitch = cursor.x >= switchRect.x && cursor.x <= switchRect.x + switchRect.width &&
+      cursor.y >= switchRect.y && cursor.y <= switchRect.y + switchRect.height
+
+    overlayWindow.setIgnoreMouseEvents(!isInSwitch)
   }
 
   /**
@@ -1142,6 +1365,7 @@ export class KcApp {
   private onMainWindowBlur(): void {
     const isDestroyed = this.isMainWindowDestroyed
     debug('main window blur. isDestroyed:', isDestroyed)
+    this.taiha_overlay_window?.setIgnoreMouseEvents(true)
     if (isDestroyed) {
       return
     }
@@ -1160,13 +1384,22 @@ export class KcApp {
 
     const webContents = event.sender
     const isMainContents = webContents === this.main_window.webContents
-    debug(MainChannel.renderer_ready, 
-      'srcid:', appState.media_source_id, 'isMainContents:', isMainContents)
+    const isTaihaOverlayContents =
+      !!this.taiha_overlay_window && webContents === this.taiha_overlay_window.webContents
+    debug(MainChannel.renderer_ready,
+      'srcid:', appState.media_source_id,
+      'isMainContents:', isMainContents,
+      'isTaihaOverlayContents:', isTaihaOverlayContents)
 
     // send game state
     if(isMainContents) {
       webContents.send(GameChannel.set_app_state, appState)
       webContents.send(GameChannel.set_game_setting, gameSettingProxy.value)
+    }
+
+    if (isTaihaOverlayContents) {
+      webContents.send(GameChannel.set_ctrl_state, this.ctrl_key_state)
+      webContents.send(GameChannel.set_taiha_overlay_view_state, this.taihaOverlayViewState)
     }
 
     // notify start up check result if already checked
@@ -1212,6 +1445,7 @@ export class KcApp {
       gameSetting.zoom_factor = AppStuff.calcGameZoomFactor(size.width)
     }
     this.nohandle_resize = false
+    this.updateTaihaOverlayBounds()
   }
 
   /**
@@ -1326,6 +1560,7 @@ export class KcApp {
   private onChannelTopmost() {
     debug(MainChannel.topmost)
     this.main_window.setAlwaysOnTop(!gameSetting.topmost)
+    this.taiha_overlay_window?.setAlwaysOnTop(!gameSetting.topmost, 'screen-saver')
     gameSetting.topmost = !gameSetting.topmost
   }
 
@@ -1360,7 +1595,7 @@ export class KcApp {
   }
 
   /**
-   * 
+   *
    */
   private onChannelOptionGetCurrentSetting(): Promise<OptionData> {
     debug(OptionChannel.getCurrentSetting)
@@ -1377,7 +1612,7 @@ export class KcApp {
   }
 
   /**
-   * 
+   *
    */
   private onChannelOptionReadyToShow(): void {
     debug(OptionChannel.readyToShow)
@@ -1390,7 +1625,7 @@ export class KcApp {
   }
 
   /**
-   * 
+   *
    */
   private onChannelOptionSelectCaptureSavePath(): string | null {
     debug(OptionChannel.selectCaptureSavePath)
@@ -1452,7 +1687,7 @@ export class KcApp {
   }
 
   /**
-   * 
+   *
    */
   private onChannelOptionSaveSetting(setting: OptionSetting): void {
     debug(OptionChannel.saveSetting, setting)
@@ -1566,9 +1801,9 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param setting 
-   * @returns 
+   *
+   * @param setting
+   * @returns
    */
   private checkUpdateIfNeeded(setting: GlobalSetting): void {
     if (! setting.checkUpdateOnStartup) {
@@ -1588,14 +1823,14 @@ export class KcApp {
       this.startupUpdateCheckResult = result
       this.notifyStartupUpdateChecked(result)
     })
-  } 
+  }
 
   /**
-   * 
-   * @param webContents 
+   *
+   * @param webContents
    */
   private postRequiredData(
-    webContents: WebContents | null, 
+    webContents: WebContents | null,
     sendSvData: boolean,
     emptyData: boolean
   ): void {
@@ -1614,7 +1849,7 @@ export class KcApp {
         // グローバル設定読み込み時、必要なら更新チェックは行う
         this.checkUpdateIfNeeded(globalSetting)
 
-        const msg: RequiredMessage  = { 
+        const msg: RequiredMessage  = {
           type: 'required',
           svdata: null,
           quests: [],
@@ -1660,8 +1895,8 @@ export class KcApp {
       // グローバル設定読み込み時、必要なら更新チェックは行う
       this.checkUpdateIfNeeded(globalSetting)
 
-      const msg: RequiredMessage  = { 
-        type: 'required', 
+      const msg: RequiredMessage  = {
+        type: 'required',
         svdata: sendSvData ? svdata.svdataRaw : null,
         quests,
         globalSetting,
@@ -1762,8 +1997,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @returns 
+   *
+   * @returns
    */
   private async onChannelCheckForUpdates(setting: GlobalSetting = this.globalSetting): Promise<UpdateCheckResult> {
     this.globalSetting = setting
@@ -1781,8 +2016,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @returns 
+   *
+   * @returns
    */
   private async checkForUpdatesCore(setting: GlobalSetting = this.globalSetting): Promise<UpdateCheckResult> {
     const channels = this.getUpdateCheckChannels(setting)
@@ -1820,9 +2055,9 @@ export class KcApp {
       const currentVersion = app.getVersion()
       debug('checkForUpdatesCore', {
         channel,
-        currentVersion: currentVersion, 
+        currentVersion: currentVersion,
         latestVersion: version,
-        isUpdateAvailable: result?.isUpdateAvailable, 
+        isUpdateAvailable: result?.isUpdateAvailable,
       })
 
       if (result?.isUpdateAvailable && version) {
@@ -1980,8 +2215,8 @@ export class KcApp {
     this.downloadedUpdateVersion = null
     this.availableUpdateVersion = null
     debug(
-      'quit and install downloaded update:', 
-      version, 
+      'quit and install downloaded update:',
+      version,
       'is silent update:', this.isSilentUpdate)
     autoUpdater.quitAndInstall(this.isSilentUpdate, false);
   }
@@ -2019,10 +2254,10 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param area_id 
-   * @param area_no 
-   * @returns 
+   *
+   * @param area_id
+   * @param area_no
+   * @returns
    */
   public async onChannelCellInfoAsync(area_id: number, area_no: number): Promise<CellInfo> {
     debug(MainChannel.cell_info_async)
@@ -2030,7 +2265,7 @@ export class KcApp {
   }
 
   /**
-   * 
+   *
    */
   async onChannelCalcPortChartData(): Promise<PortChartData> {
     debug(MainChannel.calc_port_chart_data)
@@ -2038,7 +2273,7 @@ export class KcApp {
   }
 
   /**
-   * 
+   *
    */
   private onChannelSaveAppSetting(event: IpcMainInvokeEvent, setting: AppSetting): void {
     debug(MainChannel.save_app_setting, 'sender id:', event.sender.id)
@@ -2047,8 +2282,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param setting 
+   *
+   * @param setting
    */
   private onChannelSaveGlobalSetting(event: IpcMainInvokeEvent, setting: GlobalSetting): void {
     debug(MainChannel.save_global_setting, 'sender id:', event.sender.id)
@@ -2059,10 +2294,10 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param area_id 
-   * @param area_no 
-   * @returns 
+   *
+   * @param area_id
+   * @param area_no
+   * @returns
    */
   private onChannelAggregateRankByArea(
     area_id: number, area_no: number): Promise<AggregatedCellRank[]> {
@@ -2071,16 +2306,16 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param ship_id 
-   * @returns 
+   *
+   * @param ship_id
+   * @returns
    */
   private onChannelAggregateShipDrop(ship_id: number): Promise<AggregatedCellShipDrop[]> {
     return getWorkerDriver().aggregateShipDrop(ship_id)
   }
 
   /**
-   * 
+   *
    */
   private onChannelGetInheritScoreList() : Promise<InheritScoreList> {
     debug(MainChannel.get_inherit_score_list)
@@ -2092,14 +2327,14 @@ export class KcApp {
       })
     })
   }
-  
+
   /**
-   * 
-   * @param list 
+   *
+   * @param list
    */
   private onChannelSaveInheritScoreList(list: InheritScoreList): void {
     debug(MainChannel.save_inherit_score_list)
-    inheritScoreStoreLoader.save(list)  
+    inheritScoreStoreLoader.save(list)
   }
 
   /**
@@ -2120,8 +2355,8 @@ export class KcApp {
         })
       })
     }
-    const query = { 
-      dbName: DbName.battle, 
+    const query = {
+      dbName: DbName.battle,
       find: {
         cellId : { $ne: -1 }
       },
@@ -2166,7 +2401,7 @@ export class KcApp {
     // load kc record
     if (!this.kcrecord) {
       this.kcrecord = new KcRecord(
-        PathStuff.storeUser, 
+        PathStuff.storeUser,
         () => this.questUpdated(),
         () => this.questUpdated())
     }
@@ -2176,8 +2411,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param args 
+   *
+   * @param args
    */
   private onMapInfo(args: ApiMapInfoList): void {
     if (Env.isTestMode) {
@@ -2188,8 +2423,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param args 
+   *
+   * @param args
    */
   private onMissionList(args: ApiMissionList): void {
     if (Env.isTestMode) {
@@ -2200,8 +2435,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param args 
+   *
+   * @param args
    */
   private onQuestList(args: ApiQuestListWithParam): void {
     if (args.api_tab_id === ApiQuestListParamTabId.all) {
@@ -2215,8 +2450,8 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param data 
+   *
+   * @param data
    */
   private onApiHookServerId(data: kcsapi_hook.ServerId): void {
     debug('main process received server id:', data.api_server_id);
@@ -2229,13 +2464,13 @@ export class KcApp {
     }
     const json = JSON.stringify(api_data)
     svdata.update(kcsapi.Api.API_WORLD_GET_ID, json)
-    this.postResToRenderer(kcsapi.Api.API_WORLD_GET_ID, json)  
+    this.postResToRenderer(kcsapi.Api.API_WORLD_GET_ID, json)
   }
 
   /**
-   * 
-   * @param data 
-   * @param logRequest 
+   *
+   * @param data
+   * @param logRequest
    */
   public onApiHookLoadStart(data: kcsapi_hook.LoadStart, logRequest: boolean): void {
     debug('[XHR Request Started(in main)]', data.api, data.method)
@@ -2249,9 +2484,9 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param data 
-   * @param logResponse 
+   *
+   * @param data
+   * @param logResponse
    */
   public onApiHookLoadEnd(data: kcsapi_hook.LoadEnd, logResponse: boolean): void {
     debug('[XHR Request Ended(in main)]', data.api, data.method)
@@ -2284,22 +2519,22 @@ export class KcApp {
   }
 
   /**
-   * 
-   * @param data 
+   *
+   * @param data
    */
   private onApiHookUnknownLoadStart(data: kcsapi_hook.UnknownLoadStart): void {
     debug('[XHR Unknown Request Started(in main)]', data.url, data.method)
     kcapi_debug.logUnknownRequest(data);
-  }     
+  }
 
   /**
-   * 
-   * @param data 
+   *
+   * @param data
    */
   private onApiHookUnknownLoadEnd(data: kcsapi_hook.UnknownLoadEnd): void {
     debug('[XHR Unknown Request Ended(in main)]', data.url, data.method)
     kcapi_debug.logUnknownResponse(data);
-  }     
+  }
 
   /**
    *
@@ -2322,6 +2557,10 @@ export class KcApp {
    */
   private onClosed() {
     debug('main window closed. data ok:', svdata.isShipDataOk)
+    if (this.taiha_overlay_window && !this.taiha_overlay_window.isDestroyed()) {
+      this.taiha_overlay_window.destroy()
+      this.taiha_overlay_window = null
+    }
     this.kcrecord?.doDispose()
     this.closeRecorder()
   }
@@ -2338,6 +2577,7 @@ export class KcApp {
     //debug('mainWindow. resize>> ', this.mainWindow.getPosition(), this.mainWindow.getSize(), this.mainWindow.getContentSize(), gameSetting.assistInGame, gameSetting.isAssistInGame);
     const size = this.main_window.getContentSize()
     if (size) {
+      this.updateTaihaOverlayBounds()
       const width = size[0]
       const height = AppStuff.calcFrameHeight(this.frame_ratio, width)
       //debug('>>>>>size', size[1], height, 'width', size[0]);

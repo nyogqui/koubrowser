@@ -11,6 +11,7 @@ import NDockList from '@renderer/components/NDockList.vue'
 import KDockList from '@renderer/components/KDockList.vue'
 import Game from '@renderer/components/Game.vue'
 import Assist from '@renderer/components/Assist.vue'
+import TaihaOverlayWindow from '@renderer/components/TaihaOverlayWindow.vue'
 import { captureStuff } from '@renderer/stuff/capture'
 import { recorderStuffRenderer } from '@renderer/stuff/recorder'
 import { gameState } from '@renderer/store/gamestate'
@@ -26,7 +27,11 @@ const show_timeline = ref(false)
 const timeline_data: TimelineResult = reactive([InvalidQuestContext(), []])
 
 const rendererIsGame = (): boolean => {
-  return !EnvRenderer.isAssist
+  return !EnvRenderer.isAssist && !EnvRenderer.isTaihaOverlay
+}
+
+const rendererIsTaihaOverlay = (): boolean => {
+  return EnvRenderer.isTaihaOverlay
 }
 
 onMounted(() => {
@@ -166,7 +171,11 @@ const onMute = (): void => {
 </script>
 
 <template>
-  <div class="main-root" ref="el">
+  <div v-if="rendererIsTaihaOverlay()" class="taiha-overlay-window-root">
+    <TaihaOverlayWindow />
+  </div>
+
+  <div v-else class="main-root" ref="el">
     <TitleBar
       v-if="rendererIsGame()"
       @timeline="onTimeline"
@@ -205,3 +214,10 @@ const onMute = (): void => {
     />
   </div>
 </template>
+
+<style scoped lang="scss">
+.taiha-overlay-window-root {
+  width: 100%;
+  height: 100%;
+}
+</style>
