@@ -1061,6 +1061,14 @@ export class KcApp {
               const app = getKcApp()
               app?.mainWindow.webContents.send(GameChannel.toggle_taiha_overlay_test)
             }
+          },
+          {
+            label: 'DMM Gamesヘッダ表示切替',
+            accelerator: 'Ctrl+Shift+H',
+            click: () => {
+              const app = getKcApp()
+              app?.mainWindow.webContents.send(GameChannel.toggle_dmm_header)
+            }
           }
         ]
       },
@@ -1219,6 +1227,7 @@ export class KcApp {
         this.setCtrlKeyState(false)
       }
     }
+
   }
 
   /**

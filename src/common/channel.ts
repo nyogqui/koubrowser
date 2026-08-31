@@ -102,6 +102,7 @@ export const GameChannel = {
   set_taiha_overlay_shield_enabled: 'set_taiha_overlay_shield_enabled', // 大破進撃オーバーレイスイッチ操作 args: boolean
   set_taiha_overlay_hover_state: 'set_taiha_overlay_hover_state', // 大破進撃シールドのhover状態 args: TaihaSingekiBlockState[]
   toggle_taiha_overlay_test: 'toggle_taiha_overlay_test', // 大破進撃オーバーレイ表示テスト切替
+  toggle_dmm_header: 'toggle_dmm_header', // DMM Gamesヘッダ表示切替
 } as const
 export type GameChannel = (typeof GameChannel)[keyof typeof GameChannel]
 

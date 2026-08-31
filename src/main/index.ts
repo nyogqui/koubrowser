@@ -20,8 +20,8 @@ console.log('app dir(user data):', app.getPath('userData'))
 setUserDataDir(app.getPath('userData'))
 
 /**
- * 
- * @param setting 
+ *
+ * @param setting
  */
 async function setProxy(setting: OptionSetting): Promise<void> {
 
@@ -36,7 +36,7 @@ async function setProxy(setting: OptionSetting): Promise<void> {
       mode: 'direct'
     })
   }
-  
+
   if (setting.proxyMode === 'auto_detect') {
     await session.defaultSession.setProxy({
       mode: 'auto_detect'

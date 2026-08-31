@@ -24,6 +24,7 @@ const el = ref<HTMLElement | null>(null)
 let stopSetZoomFactor: (() => void) | null = null
 let stopSetTaihaOverlayShieldEnabled: (() => void) | null = null
 let stopToggleTaihaOverlayTest: (() => void) | null = null
+let stopToggleDmmHeader: (() => void) | null = null
 
 /////////////////////////////////////////////////////////////////////////////////////
 // デバッグログ
@@ -192,6 +193,54 @@ const toggleTaihaOverlayTest = (): void => {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
+// DMM Gamesヘッダ非表示関連
+const isDmmHeaderHidden = ref<boolean>(false)
+
+const toggleDmmHeader = (): void => {
+  isDmmHeaderHidden.value = !isDmmHeaderHidden.value
+  applyDmmHeaderVisibility()
+}
+
+function applyDmmHeaderVisibility(): void {
+  const code = `(function(){
+    const hidden = ${isDmmHeaderHidden.value};
+    if (!document.head) {
+      return false;
+    }
+
+    let style = document.getElementById('kb-dmm-header-hide');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'kb-dmm-header-hide';
+      document.head.appendChild(style);
+    }
+
+    const cssText = [
+      '#root > div > header,',
+      '#root > div > nav,',
+      '#root > div > [role="banner"],',
+      '#root header,',
+      'header[id*="header"],',
+      'header[class*="header"],',
+      '#root > div > div > header,',
+      '#root > div > div > nav {',
+      '  visibility: hidden !important;',
+      '  opacity: 0 !important;',
+      '  pointer-events: none !important;',
+      '}'
+    ].join('\\n');
+
+    style.textContent = hidden ? cssText : '';
+    return true;
+  })()`
+  getWebviewUnsafe().executeJavaScript(code).then((any) => {
+    debug('dmm header visibility applied', isDmmHeaderHidden.value, any)
+  }).catch((error: unknown) => {
+    console.error('failed to apply dmm header visibility', error)
+  })
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
 // game webview関連
 
 // mute状態はDOM-READY後ではないと設定できないことに注意
@@ -275,6 +324,12 @@ onMounted(() => {
       toggleTaihaOverlayTest()
     }
   )
+  stopToggleDmmHeader = ipcRenderer.on(
+    GameChannel.toggle_dmm_header,
+    () => {
+      toggleDmmHeader()
+    }
+  )
 
   // 大破進撃防止関連
   cb_port = ApiCallback.set([Api.PORT_PORT, () => onPort()])
@@ -321,6 +376,9 @@ onUnmounted(() => {
 
   stopToggleTaihaOverlayTest?.()
   stopToggleTaihaOverlayTest = null
+
+  stopToggleDmmHeader?.()
+  stopToggleDmmHeader = null
 
   if (cb_port) {
     ApiCallback.unset(cb_port)
@@ -401,6 +459,9 @@ function loadCommit(event: LoadCommitEvent): void {
     debug('loadCommit: game start loading detected', event.url)
     insertModCss()
     gameFrameScrollOff()
+    if (isDmmHeaderHidden.value) {
+      applyDmmHeaderVisibility()
+    }
   }
 }
 
@@ -443,8 +504,10 @@ function insertModCss() {
 body {
 overflow: hidden;
 }
-#root > div > main {
+#root > div > main,
+main {
 padding-top: 0 !important;
+margin-top: 0 !important;
 }
 #root > div.gamesResetStyle > header > nav > div:nth-of-type(1) {
 justify-content: flex-start !important;
