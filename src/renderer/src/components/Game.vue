@@ -30,7 +30,7 @@ let stopToggleDmmHeader: (() => void) | null = null
 // デバッグログ
 const DEBUG = 0;
 
-const debug = (...args: any[]) => {
+const debug = (...args: unknown[]): void => {
   if (DEBUG) console.debug("[game webview]", ...args);
 };
 
@@ -58,7 +58,7 @@ const testTaihaShipInfos: TaihaOverlayShipInfo[] = [
   },
 ]
 
-const clearBlockShieldVisibleTimer = () => {
+const clearBlockShieldVisibleTimer = (): void => {
   if (blockShieldVisibleTimer) {
     clearTimeout(blockShieldVisibleTimer)
     blockShieldVisibleTimer = null
@@ -250,9 +250,9 @@ const StageType = {
   None: 0,
   GameStartLoading: 1,
 } as const
-export type StageType = (typeof StageType)[keyof typeof StageType]
+type StageTypeValue = (typeof StageType)[keyof typeof StageType]
 
-const stage = ref<StageType>(StageType.None)
+const stage = ref<StageTypeValue>(StageType.None)
 
 watch(
   () => gameSetting.zoom_factor,
@@ -414,7 +414,7 @@ function setZoomFactor(_event: IpcRendererEvent, factor: number): void {
   getWebviewUnsafe().setZoomFactor(factor)
 }
 
-function domReady(_event: Event): void {
+function domReady(): void {
   debug('domReady')
 
   // apply muted state if needed
@@ -465,11 +465,11 @@ function loadCommit(event: LoadCommitEvent): void {
   }
 }
 
-function didStartLoading(_event: Event): void {
+function didStartLoading(): void {
   debug('did-start-loading')
 }
 
-function didFinishLoading(_event: Event): void {
+function didFinishLoading(): void {
   debug('did-finish-loading')
 }
 
@@ -499,7 +499,7 @@ function didFrameFinishLoad(event: DidFrameFinishLoadEvent): void {
   }
 }
 
-function insertModCss() {
+function insertModCss(): void {
   const css = `
 body {
 overflow: hidden;
@@ -522,7 +522,7 @@ width: 1200px !important;
   })
 }
 
-function gameFrameScrollOff() {
+function gameFrameScrollOff(): void {
   const code = `(function(){
     let a = document.querySelector('#game_frame');
     if (a) {
@@ -538,11 +538,11 @@ function gameFrameScrollOff() {
     })
 }
 
-function mediaStartedPlaying(_event: Event): void {
+function mediaStartedPlaying(): void {
   debug('mediaStartedPlaying')
 }
 
-function mediaPaused(_event: Event): void {
+function mediaPaused(): void {
   debug('mediaPaused')
 }
 
@@ -562,7 +562,7 @@ function setMute(mute: boolean, notifyCheck: boolean): void {
   }
 }
 
-function isStage(check: StageType): boolean {
+function isStage(check: StageTypeValue): boolean {
   return stage.value === check
 }
 
@@ -589,7 +589,7 @@ function onPort(): void {
  * 大破進撃チェック
  * 大破艦がいれば、大破進撃防止UIを表示する
  */
-const checkSingekiBlock = () => {
+const checkSingekiBlock = (): void => {
   if (isTaihaOverlayTestMode.value) {
     return
   }
@@ -712,7 +712,7 @@ const onBlockShieldSwitchChanged = (enabled: boolean): void => {
 
 </script>
 <template>
-  <div class="game-container" ref="el">
+  <div ref="el" class="game-container">
     <webview
       id="kb"
       class="kb"
@@ -720,9 +720,8 @@ const onBlockShieldSwitchChanged = (enabled: boolean): void => {
       allowpopups
       enableremotemodule="false"
       nodeintegration="false"
-      nodeIntegrationInSubFrames="true"
-      webPreferences="contextIsolation=no, sandbox=no"
+      nodeintegrationinsubframes="true"
+      webpreferences="contextIsolation=no, sandbox=no"
     ></webview>
-
   </div>
 </template>
