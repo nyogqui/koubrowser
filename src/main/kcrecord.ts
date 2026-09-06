@@ -479,6 +479,14 @@ export class KcRecord {
     if (this.questlist_called) {
       // remove quest record
       QuestUpdater.removeQuest(arg.api_quest_id)
+      this.quest_updaters = this.quest_updaters.filter((updater) => {
+        if (updater.quest.api_no === arg.api_quest_id) {
+          updater.unsetCallback()
+          return false
+        }
+        return true
+      })
+      this.cbQuestUpdated()
     }
   }
 

@@ -10160,6 +10160,12 @@ export class SvData {
       const req: ApiClearItemGetParam = qsParse(query)
       const api_quest_id = parseInt(req.api_quest_id)
       if (!isNaN(api_quest_id)) {
+        const questlist = this.apiData.api_questlist
+        if (questlist) {
+          Object.assign(questlist, {
+            api_list: questlist.api_list.filter((quest) => quest.api_no !== api_quest_id)
+          })
+        }
         const withParam: ApiClearItemGetWithParam = {
           ...data,
           api_quest_id
