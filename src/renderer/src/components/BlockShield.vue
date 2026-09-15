@@ -7,7 +7,7 @@ import { EnvRenderer } from '@renderer/common/env-renderer'
 // デバッグログ
 const DEBUG = 0;
 
-const debug = (...args: any[]) => {
+const debug = (...args: unknown[]): void => {
   if (DEBUG) console.debug("[block shield]", ...args);
 };
 

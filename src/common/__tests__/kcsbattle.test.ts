@@ -43,7 +43,7 @@ describe('kcsbattle test', () => {
     const battleInfo = loadBattleInfo('case1-api_req_combined_battle-each_battle.json')
 
     expect(calcFleetHps(battleInfo)).toEqual({
-      deck: [93, 72, 66, 65, 18, 45], 
+      deck: [93, 72, 66, 65, 18, 45],
       combined: [17, 40, 39, 53, 24, 49]
     })
     expect(calcEnemyHps(battleInfo)).toEqual([
@@ -215,7 +215,7 @@ describe('kcsbattle test', () => {
       'case9-api_req_battle_midnight-battle.json'
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck:[15-10, 61, 55, 31-2-18, 45-4-20, 34-23-9]
     })
     expect(calcEnemyHps(battleInfo)).toEqual([
@@ -254,7 +254,7 @@ describe('kcsbattle test', () => {
     // 砲撃
     const battleInfo = loadMidnightBattleInfo('case11-api_req_battle_midnight-sp_midnight.json')
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [49, 53, 52-30, 54, 34, 33]
     })
     expect(calcEnemyHps(battleInfo)).toEqual([
@@ -274,7 +274,7 @@ describe('kcsbattle test', () => {
     // 先制対潜, 先制雷撃、砲撃
     const battleInfo = loadBattleInfo('case12-api_req_combined_battle-battle.json')
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99,99,66,65,47],
       combined: [49-23,49,41,41,53,40]
     })
@@ -293,7 +293,7 @@ describe('kcsbattle test', () => {
     // 開幕、先制雷撃、砲撃
     const battleInfo = loadBattleInfo('case13-api_req_combined_battle-battle.json')
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99,99-11,66-5,65,47],
       combined: [26,49,41,41,53,40]
     })
@@ -314,7 +314,7 @@ describe('kcsbattle test', () => {
     // 開幕、先制対潜、先制雷撃、砲撃
     const battleInfo = loadBattleInfo('case14-api_req_combined_battle-battle.json')
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99,88,61,65,47],
       combined: [49,49,41,41,53-5]
     })
@@ -333,7 +333,7 @@ describe('kcsbattle test', () => {
     // 開幕、先制雷撃、砲撃
     const battleInfo = loadBattleInfo('case15-api_req_combined_battle-battle.json')
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99,88,61,65,47],
       combined: [49,49-31,41,41,48]
     })
@@ -353,7 +353,7 @@ describe('kcsbattle test', () => {
     // 開幕、先制雷撃、砲撃
     const battleInfo = loadBattleInfo('case16-api_req_combined_battle-battle.json')
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99,88,61-41,65-3-26,47],
       combined: [49,18,41,41,48]
     })
@@ -431,7 +431,7 @@ describe('kcsbattle test', () => {
       'case19-api_req_battle_midnight-battle.json'
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [38, 27-21, 33, 33, 33, 33-25, 40],
     })
     expect(calcEnemyHps(battleInfo)).toEqual([
@@ -542,7 +542,7 @@ describe('kcsbattle test', () => {
       'case24-api_req_combined_battle-ec_midnight_battle.json'
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99-11,72-39,66-39,75-43-19,87-75,44],
       combined: [44-3-3,41-23-1,45,12-6,40-24,46]
     })
@@ -573,7 +573,7 @@ describe('kcsbattle test', () => {
       'case25-api_req_combined_battle-ec_midnight_battle.json'
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99-88,64-35-20-6,66,87-62,86-52,47-26],
       combined: [49-33-11,41-31,20-2-12,41-20-15-3,40,49-36]
     })
@@ -603,7 +603,7 @@ describe('kcsbattle test', () => {
       'case26-api_req_combined_battle-battle.json',
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [99,99,66,87,86,47],
       combined: [49,41-31,53,41,40,49]
     })
@@ -627,7 +627,7 @@ describe('kcsbattle test', () => {
       'case27-api_req_combined_battle-ec_midnight_battle.json'
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [91-13,88-6-42,71-11-43-11-3,33,26-13-9,51-27],
       combined: [31,19-11,17-14,47-4-3,14,38-28-6-2]
     })
@@ -658,7 +658,7 @@ describe('kcsbattle test', () => {
       'case28-api_req_combined_battle-ec_midnight_battle.json'
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [91, 88-47, 71, 66, 69-54, 34],
       combined: [38-22, 43, 46, 69-49, 37, 44]
     })
@@ -689,7 +689,7 @@ describe('kcsbattle test', () => {
       'case29-api_req_combined_battle-ec_midnight_battle.json'
     )
 
-    expect(calcFleetHps(battleInfo)).toEqual({ 
+    expect(calcFleetHps(battleInfo)).toEqual({
       deck: [91, 88, 66-38-16, 71-56-10, 69, 62-3],
       combined: [38, 43, 46-23, 69-19, 37-23, 33]
     })
@@ -708,6 +708,60 @@ describe('kcsbattle test', () => {
       { id: 1577, hp: 38-48 },
       { id: 1577, hp: 38-177 }
     ])
+  })
+
+  it('case30: calculates sortie battle', () => {
+    vi.spyOn(console, 'debug').mockImplementation(() => undefined)
+
+    // case30: 機動部隊 vs 通常艦隊
+    // 基地墳式強襲、基地航空隊1部隊目2部隊目、開幕、先制雷撃、雷撃戦、砲撃
+    const battleInfo = loadBattleInfo(
+      'case30-api_req_combined_battle-battle.json',
+    )
+
+    expect(calcFleetHps(battleInfo)).toEqual({
+      deck: [91, 88, 71, 78, 74, 43],
+      combined: [66, 43, 43, 38, 45-5, 55]
+    })
+    expect(calcEnemyHps(battleInfo)).toEqual([
+      { id: 1527, hp: 76-253 },
+      { id: 1559, hp: 70-5-56-109 },
+      { id: 1559, hp: 70-2-23-151 },
+      { id: 1555, hp: 57-110 },
+      { id: 1577, hp: 38-81 },
+      { id: 1577, hp: 38-42 },
+    ])
+  })
+
+  it('case31: calculates sortie battle', () => {
+    vi.spyOn(console, 'debug').mockImplementation(() => undefined)
+
+    // case31: 機動部隊 vs 連合艦隊(ボスマス)
+    // 基地墳式強襲、基地航空隊1部隊目2部隊目、開幕、先制雷撃、雷撃戦、砲撃
+    const battleInfo = loadBattleInfo(
+      'case31-api_req_combined_battle-each_battle.json',
+    )
+
+    expect(calcFleetHps(battleInfo)).toEqual({
+      deck: [91, 88-59, 71-51-13, 78-57, 74-41, 43-33-5],
+      combined: [64, 43, 43, 38, 45-28, 55]
+    })
+    expect(calcEnemyHps(battleInfo)).toEqual([
+      { id: 2037, hp: 790-67-292-369 },
+      { id: 2119, hp: 900-99-77 },
+      { id: 1557, hp: 400-37-376 },
+      { id: 1557, hp: 400-136-103 },
+      { id: 1956, hp: 470-249-69-10-16 },
+      { id: 1592, hp: 66-13-65 },
+      // --
+      { id: 1904, hp: 115-122 },
+      { id: 2051, hp: 66-304 },
+      { id: 1623, hp: 46-35-13 },
+      { id: 1623, hp: 46-59 },
+      { id: 1577, hp: 38-69 },
+      { id: 1577, hp: 38-43 }
+    ])
+
   })
 
 })

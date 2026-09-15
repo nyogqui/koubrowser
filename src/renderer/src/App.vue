@@ -39,7 +39,7 @@ onMounted(() => {
 
 })
 
-function getGame() {
+function getGame(): InstanceType<typeof Game> | null {
   return game.value
 }
 
@@ -96,7 +96,7 @@ const onTimeline = (): void => {
           }
         })
       })
-      .catch((error: any) => {
+      .catch((error) => {
         console.log('timeline ipc error', error)
         in_timeline_query.value = false
       })
@@ -146,11 +146,15 @@ const onRecStop = (): void => {
   )
 }
 
-const onScreenShot = (): void => {
+const onScreenShot = (onSaved: (filename: string) => void): void => {
   console.log('screenshot')
   const webview = getGame()?.getWebview()
   if (webview) {
     captureStuff.capture(webview)
+      .then((filename) => onSaved(filename))
+      .catch((err: unknown) => {
+        console.error('failed to capture screenshot', err)
+      })
   }
 }
 
@@ -175,19 +179,19 @@ const onMute = (): void => {
     <TaihaOverlayWindow />
   </div>
 
-  <div v-else class="main-root" ref="el">
+  <div v-else ref="el" class="main-root">
     <TitleBar
       v-if="rendererIsGame()"
+      :timeline-pressed="show_timeline"
       @timeline="onTimeline"
-      :timeline_pressed="show_timeline"
       @rec="onRec"
-      @recStop="onRecStop"
+      @rec-stop="onRecStop"
       @screenshot="onScreenShot"
-      @gameDevtool="onGameDevTool"
+      @game-devtool="onGameDevTool"
       @mute="onMute"
     />
     <div class="main-content" :style="mainStyle">
-      <div class="game-content" v-if="rendererIsGame()" :style="gameStyle">
+      <div v-if="rendererIsGame()" class="game-content" :style="gameStyle">
         <Game ref="game" />
       </div>
       <div
@@ -207,8 +211,8 @@ const onMute = (): void => {
       </div>
     </div>
     <Timeline
-      id="timeline"
       v-if="show_timeline"
+      id="timeline"
       v-model:show="show_timeline"
       :data="timeline_data"
     />
